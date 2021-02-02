@@ -9,15 +9,6 @@ let package = Package(
   products: [
     .library(
       name: "Xiph",
-      type: .dynamic,
-      targets: xiphTargets),
-    .library(
-      name: "XiphDynamic",
-      type: .dynamic,
-      targets: xiphTargets),
-    .library(
-      name: "XiphStatic",
-      type: .static,
       targets: xiphTargets),
     .library(
       name: "Flac",

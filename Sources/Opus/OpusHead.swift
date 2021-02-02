@@ -6,10 +6,8 @@ public final class OpusHead {
   //  @usableFromInline
   //  let needFree: Bool
 
-  @usableFromInline
   let head: UnsafePointer<COpusfile.OpusHead>
 
-  @usableFromInline
   internal init(head: UnsafePointer<COpusfile.OpusHead>) {
     //    self.needFree = false
     self.head = head

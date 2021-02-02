@@ -107,6 +107,31 @@ public extension FlacStreamMetadataStreamInfo {
   var bitsPerSample: UInt32 {
     ptr.pointee.data.stream_info.bits_per_sample
   }
+
+  var minBlocksize: UInt32 {
+    ptr.pointee.data.stream_info.min_blocksize
+  }
+
+  var maxBlocksize: UInt32 {
+    ptr.pointee.data.stream_info.max_blocksize
+  }
+
+  var minFramesize: UInt32 {
+    ptr.pointee.data.stream_info.min_framesize
+  }
+
+  var maxFramesize: UInt32 {
+    ptr.pointee.data.stream_info.max_framesize
+  }
+
+  var channels: UInt32 {
+    ptr.pointee.data.stream_info.channels
+  }
+
+  var totalSamples: UInt64 {
+    ptr.pointee.data.stream_info.total_samples
+  }
+
 }
 
 // MARK: VorbisComment
@@ -138,7 +163,7 @@ public extension FlacStreamMetadataVorbisComment {
   }
 
   func copyAll() -> [String] {
-    (0..<Int(commentsCount)).map { self[$0] }
+    (0..<Int(commentsCount)).map { ptr.pointee.data.vorbis_comment.comments[$0].string }
   }
 }
 

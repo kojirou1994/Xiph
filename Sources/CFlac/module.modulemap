@@ -1,4 +1,4 @@
-module CFlac {
+module CFlac [system] {
   header "shim.h"
   link "FLAC"
   export *

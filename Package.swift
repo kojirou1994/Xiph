@@ -16,6 +16,10 @@ let package = Package(
     .library(
       name: "Opus",
       targets: ["Opus"]),
+    .library(name: "CFlac", targets: ["CFlac"]),
+    .library(name: "COgg", targets: ["COgg"]),
+    .library(name: "COpus", targets: ["COpus"]),
+    .library(name: "COpusfile", targets: ["COpusfile"]),
   ],
   dependencies: [
     .package(url: "https://github.com/kojirou1994/Kwift.git", from: "0.8.1")

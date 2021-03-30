@@ -180,11 +180,35 @@ public final class FlacDecoder {
   ///   - input: input enum
   ///   - delegate: callback delegate
   /// - Throws: FlacDecoderInitError
-  public init(input: Input, delegate: FlacDecoderDelegate?) throws {
+  public init(input: Input, delegate: FlacDecoderDelegate?, options: [DecoderOption]) throws {
     decoder = try FLAC__stream_decoder_new()
       .unwrap(FlacDecoderInitError.memoryAllocation)
     self.delegate = delegate
     self.input = input
+
+    options.forEach { option in
+      let result: FLAC__bool
+      switch option {
+      case .oggSerialNumber(let number):
+        result = FLAC__stream_decoder_set_ogg_serial_number(decoder, number)
+      case .md5CheckingEnabled:
+        result = FLAC__stream_decoder_set_md5_checking(decoder, true.flacBool)
+      case .metadataRespond(let type):
+        result = FLAC__stream_decoder_set_metadata_respond(decoder, type)
+      case .metadataRespondApplication(let str):
+        result = FLAC__stream_decoder_set_metadata_respond_application(decoder, str)
+      case .metadataRespondAll:
+        result = FLAC__stream_decoder_set_metadata_respond_all(decoder)
+      case .metadataIgnore(let type):
+        result = FLAC__stream_decoder_set_metadata_ignore(decoder, type)
+      case .metadataIgnoreApplication(let str):
+        result = FLAC__stream_decoder_set_metadata_ignore_application(decoder, str)
+      case .metadataIgnoreAll:
+        result = FLAC__stream_decoder_set_metadata_ignore_all(decoder)
+      }
+
+      assert(result.cBool, "Only fail when the decoder is already initialized.")
+    }
 
     let clientData = unsafeBitCast(self, to: UnsafeMutableRawPointer.self)
     let initStatus: FLAC__StreamDecoderInitStatus

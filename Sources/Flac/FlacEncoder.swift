@@ -155,7 +155,20 @@ public final class FlacEncoder {
 
 extension FlacEncoder {
   public struct Options {
+    public init(requiredOptions: FlacEncoder.Options.RequiredOptions, optionalOptions: [FlacEncoder.Options.OptionalOption]) {
+      self.requiredOptions = requiredOptions
+      self.optionalOptions = optionalOptions
+    }
+
     public struct RequiredOptions {
+      public init(channels: UInt32, bitsPerSample: UInt32, sampleRate: UInt32, serialNumber: Int?, totalSamplesEstimate: UInt64?) {
+        self.channels = channels
+        self.bitsPerSample = bitsPerSample
+        self.sampleRate = sampleRate
+        self.serialNumber = serialNumber
+        self.totalSamplesEstimate = totalSamplesEstimate
+      }
+
       public let channels: UInt32
       public let bitsPerSample: UInt32
       public let sampleRate: UInt32

@@ -5,7 +5,7 @@ import Precondition
 extension FLAC__StreamDecoderInitStatus: Error {}
 extension FLAC__StreamDecoderState: Error {}
 
-// MARK: Base Callbacks
+// MARK: Base Delegate
 public protocol FlacDecoderDelegate {
   mutating func didDecodeFrame(_ frame: UnsafePointer<FLAC__Frame>, buffers: UnsafePointer<UnsafePointer<Int32>?>?, decoder: FlacDecoder) -> FLAC__StreamDecoderWriteStatus
   mutating func didDecodeMetadata(_ metadata: FlacStreamMetadata, decoder: FlacDecoder)
@@ -27,8 +27,8 @@ fileprivate func errorCallback(decoder: UnsafePointer<FLAC__StreamDecoder>?, sta
   swiftDecoder.delegate?.didOccurError(status: status, decoder: swiftDecoder)
 }
 
-// MARK: Stream Provider
-public protocol FlacDecoderStreamProvider {
+// MARK: Stream Delegate
+public protocol FlacDecoderStreamDelegate {
   mutating func readInto(buffer: UnsafeMutablePointer<FLAC__byte>, bytesCount: UnsafeMutablePointer<Int>, decoder: FlacDecoder) -> FLAC__StreamDecoderReadStatus
   mutating func seekTo(absoluteByteOffset: UInt64, decoder: FlacDecoder) -> FLAC__StreamDecoderSeekStatus
   mutating func get(currentAbsoluteByteOffset: UnsafeMutablePointer<UInt64>, decoder: FlacDecoder) -> FLAC__StreamDecoderTellStatus
@@ -38,35 +38,35 @@ public protocol FlacDecoderStreamProvider {
 
 fileprivate func readCallback(decoder: UnsafePointer<FLAC__StreamDecoder>?, buffer: UnsafeMutablePointer<FLAC__byte>?, bytes: UnsafeMutablePointer<Int>?, client: UnsafeMutableRawPointer?) -> FLAC__StreamDecoderReadStatus {
   let swiftDecoder = unsafeBitCast(client.unsafelyUnwrapped, to: FlacDecoder.self)
-  return swiftDecoder.withUnsafeMutableStreamProvider { provider in
+  return swiftDecoder.input.withUnsafeMutableStreamDelegate { provider in
     provider.readInto(buffer: buffer.unsafelyUnwrapped, bytesCount: bytes.unsafelyUnwrapped, decoder: swiftDecoder)
   }
 }
 
 fileprivate func seekCallback(decoder: UnsafePointer<FLAC__StreamDecoder>?, absolute_byte_offset: UInt64, client: UnsafeMutableRawPointer?) -> FLAC__StreamDecoderSeekStatus {
   let swiftDecoder = unsafeBitCast(client.unsafelyUnwrapped, to: FlacDecoder.self)
-  return swiftDecoder.withUnsafeMutableStreamProvider { provider in
+  return swiftDecoder.input.withUnsafeMutableStreamDelegate { provider in
     provider.seekTo(absoluteByteOffset: absolute_byte_offset, decoder: swiftDecoder)
   }
 }
 
 fileprivate func tellCallback(decoder: UnsafePointer<FLAC__StreamDecoder>?, absolute_byte_offset: UnsafeMutablePointer<FLAC__uint64>?, client: UnsafeMutableRawPointer?) -> FLAC__StreamDecoderTellStatus {
   let swiftDecoder = unsafeBitCast(client.unsafelyUnwrapped, to: FlacDecoder.self)
-  return swiftDecoder.withUnsafeMutableStreamProvider { provider in
+  return swiftDecoder.input.withUnsafeMutableStreamDelegate { provider in
     provider.get(currentAbsoluteByteOffset: absolute_byte_offset.unsafelyUnwrapped, decoder: swiftDecoder)
   }
 }
 
 fileprivate func lengthCallback(decoder: UnsafePointer<FLAC__StreamDecoder>?, streamLength: UnsafeMutablePointer<FLAC__uint64>?, client: UnsafeMutableRawPointer?) -> FLAC__StreamDecoderLengthStatus {
   let swiftDecoder = unsafeBitCast(client.unsafelyUnwrapped, to: FlacDecoder.self)
-  return swiftDecoder.withUnsafeMutableStreamProvider { provider in
+  return swiftDecoder.input.withUnsafeMutableStreamDelegate { provider in
     provider.get(totalStreamLength: streamLength.unsafelyUnwrapped, decoder: swiftDecoder)
   }
 }
 
 fileprivate func eofCallback(decoder: UnsafePointer<FLAC__StreamDecoder>?, client: UnsafeMutableRawPointer?) -> FLAC__bool {
   let swiftDecoder = unsafeBitCast(client.unsafelyUnwrapped, to: FlacDecoder.self)
-  return swiftDecoder.withUnsafeMutableStreamProvider { provider in
+  return swiftDecoder.input.withUnsafeMutableStreamDelegate { provider in
     provider.isEndOfFile(decoder: swiftDecoder).flacBool
   }
 }
@@ -75,49 +75,16 @@ public final class FlacDecoder {
 
   private let decoder: UnsafeMutablePointer<FLAC__StreamDecoder>
 
-  public fileprivate(set) var input: Input
+  public fileprivate(set) var input: FlacInput
 
   fileprivate var delegate: FlacDecoderDelegate?
-
-  public enum Input {
-    case file(String)
-    case cfile(UnsafeMutablePointer<FILE>)
-    case oggFile(String)
-    case oggCFile(UnsafeMutablePointer<FILE>)
-    case stream(FlacDecoderStreamProvider)
-    case oggStream(FlacDecoderStreamProvider)
-
-    var isOgg: Bool {
-      switch self {
-      case .oggFile, .oggCFile, .oggStream:
-        return true
-      default:
-        return false
-      }
-    }
-  }
-
-  func withUnsafeMutableStreamProvider<T>(closure: (inout FlacDecoderStreamProvider) -> T) -> T {
-    let result: T
-    switch input {
-    case .stream(var provider):
-      result = closure(&provider)
-      input = .stream(provider)
-    case .oggStream(var provider):
-      result = closure(&provider)
-      input = .oggStream(provider)
-    default:
-      fatalError()
-    }
-    return result
-  }
 
   ///
   /// - Parameters:
   ///   - input: input enum
   ///   - delegate: callback delegate
   /// - Throws: FLAC__StreamDecoderInitStatus
-  public init(input: Input, delegate: FlacDecoderDelegate?, options: [DecoderOption]) throws {
+  public init(input: FlacInput, delegate: FlacDecoderDelegate?, options: [DecoderOption]) throws {
     decoder = try FLAC__stream_decoder_new()
       .unwrap(FLAC__STREAM_DECODER_INIT_STATUS_MEMORY_ALLOCATION_ERROR)
     self.delegate = delegate

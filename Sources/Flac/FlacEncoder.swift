@@ -4,61 +4,50 @@ import Precondition
 
 extension FLAC__StreamEncoderInitStatus: Error {}
 
-// MARK: Base Callbacks
+// MARK: Base Delegate
 public protocol FlacEncoderDelegate {
-  mutating func progressCallback(bytesWritten: UInt64, samplesWritten: UInt64, framesWritten: UInt32, totalFramesEstimate: UInt32)
+  mutating func didWriteOneFrame(bytesWritten: UInt64, samplesWritten: UInt64, framesWritten: UInt32, totalFramesEstimate: UInt32, encoder: FlacEncoder)
 }
 
 fileprivate func progressCallback(encoder: UnsafePointer<FLAC__StreamEncoder>?, bytesWritten: FLAC__uint64, samplesWritten: FLAC__uint64, framesWritten: UInt32, totalFramesEstimate: UInt32, client: UnsafeMutableRawPointer?)  {
   let swiftEncoder = unsafeBitCast(client.unsafelyUnwrapped, to: FlacEncoder.self)
-  swiftEncoder.delegate?.progressCallback(bytesWritten: bytesWritten, samplesWritten: samplesWritten, framesWritten: framesWritten, totalFramesEstimate: totalFramesEstimate)
+  swiftEncoder.delegate?.didWriteOneFrame(bytesWritten: bytesWritten, samplesWritten: samplesWritten, framesWritten: framesWritten, totalFramesEstimate: totalFramesEstimate, encoder: swiftEncoder)
 }
 
-// MARK: Stream Callbacks
+// MARK: Stream Delegate
 public protocol FlacEncoderStreamDelegate {
-  func writeCallback(buffer: UnsafePointer<FLAC__byte>?, bytes: Int, samples: UInt32, currentFrame: UInt32) -> FLAC__StreamEncoderWriteStatus
-  func seekCallback(absoluteByteOffset: FLAC__uint64) -> FLAC__StreamEncoderSeekStatus
-  func tellCallback(absoluteByteOffset: UnsafeMutablePointer<FLAC__uint64>?) -> FLAC__StreamEncoderTellStatus
-  func metadataCallback(metadata: FlacStreamMetadata)
+  mutating func writeEncoded(buffer: UnsafePointer<UInt8>, bytes: Int, samples: UInt32, currentFrame: UInt32, encoder: FlacEncoder) -> FLAC__StreamEncoderWriteStatus
+  mutating func seekTo(absoluteByteOffset: UInt64, encoder: FlacEncoder) -> FLAC__StreamEncoderSeekStatus
+  mutating func get(currentAbsoluteByteOffset: UnsafeMutablePointer<UInt64>, encoder: FlacEncoder) -> FLAC__StreamEncoderTellStatus
+  mutating func didEncoded(metadata: FlacStreamMetadata, encoder: FlacEncoder)
 }
 
 fileprivate func writeCallback(encoder: UnsafePointer<FLAC__StreamEncoder>?, buffer: UnsafePointer<FLAC__byte>?, bytes: Int, samples: UInt32, currentFrame: UInt32, client: UnsafeMutableRawPointer?) -> FLAC__StreamEncoderWriteStatus {
+  FLAC__StreamEncoderMetadataCallback.self
   let swiftEncoder = unsafeBitCast(client.unsafelyUnwrapped, to: FlacEncoder.self)
-  switch swiftEncoder.output {
-  case .stream(let delegate), .oggStream(let delegate):
-    return delegate.writeCallback(buffer: buffer, bytes: bytes, samples: samples, currentFrame: currentFrame)
-  default:
-    fatalError()
+  return swiftEncoder.output.withUnsafeMutableStreamDelegate { delegate in
+    delegate.writeEncoded(buffer: buffer.unsafelyUnwrapped, bytes: bytes, samples: samples, currentFrame: currentFrame, encoder: swiftEncoder)
   }
 }
 
 fileprivate func seekCallback(encoder: UnsafePointer<FLAC__StreamEncoder>?, absoluteByteOffset: FLAC__uint64, client: UnsafeMutableRawPointer?) -> FLAC__StreamEncoderSeekStatus {
   let swiftEncoder = unsafeBitCast(client.unsafelyUnwrapped, to: FlacEncoder.self)
-  switch swiftEncoder.output {
-  case .stream(let delegate), .oggStream(let delegate):
-    return delegate.seekCallback(absoluteByteOffset: absoluteByteOffset)
-  default:
-    fatalError()
+  return swiftEncoder.output.withUnsafeMutableStreamDelegate { delegate in
+    delegate.seekTo(absoluteByteOffset: absoluteByteOffset, encoder: swiftEncoder)
   }
 }
 
 fileprivate func tellCallback(encoder: UnsafePointer<FLAC__StreamEncoder>?, absoluteByteOffset: UnsafeMutablePointer<FLAC__uint64>?, client: UnsafeMutableRawPointer?) -> FLAC__StreamEncoderTellStatus {
   let swiftEncoder = unsafeBitCast(client.unsafelyUnwrapped, to: FlacEncoder.self)
-  switch swiftEncoder.output {
-  case .stream(let delegate), .oggStream(let delegate):
-    return delegate.tellCallback(absoluteByteOffset: absoluteByteOffset)
-  default:
-    fatalError()
+  return swiftEncoder.output.withUnsafeMutableStreamDelegate { delegate in
+    delegate.get(currentAbsoluteByteOffset: absoluteByteOffset.unsafelyUnwrapped, encoder: swiftEncoder)
   }
 }
 
 fileprivate func metadataCallback(encoder: UnsafePointer<FLAC__StreamEncoder>?, metadata: UnsafePointer<FLAC__StreamMetadata>?, client: UnsafeMutableRawPointer?) {
   let swiftEncoder = unsafeBitCast(client.unsafelyUnwrapped, to: FlacEncoder.self)
-  switch swiftEncoder.output {
-  case .stream(let delegate), .oggStream(let delegate):
-    return delegate.metadataCallback(metadata: .init(.init(mutating: metadata.unsafelyUnwrapped), owner: swiftEncoder))
-  default:
-    fatalError()
+  swiftEncoder.output.withUnsafeMutableStreamDelegate { delegate in
+    delegate.didEncoded(metadata: .init(.init(mutating: metadata.unsafelyUnwrapped), owner: swiftEncoder), encoder: swiftEncoder)
   }
 }
 
@@ -66,30 +55,12 @@ public final class FlacEncoder {
 
   private let encoder: UnsafeMutablePointer<FLAC__StreamEncoder>
 
-  public let output: Output
+  public fileprivate(set) var output: FlacOutput
   public let options: Options
 
   fileprivate var delegate: FlacEncoderDelegate?
 
-  public enum Output {
-    case file(String)
-    case cfile(UnsafeMutablePointer<FILE>)
-    case oggFile(String)
-    case oggCFile(UnsafeMutablePointer<FILE>)
-    case stream(FlacEncoderStreamDelegate)
-    case oggStream(FlacEncoderStreamDelegate)
-
-    var isOgg: Bool {
-      switch self {
-      case .oggFile, .oggCFile, .oggStream:
-        return true
-      default:
-        return false
-      }
-    }
-  }
-
-  public init(output: Output, delegate: FlacEncoderDelegate?, options: Options) throws {
+  public init(output: FlacOutput, delegate: FlacEncoderDelegate?, options: Options) throws {
     encoder = try FLAC__stream_encoder_new()
       .unwrap(FLAC__STREAM_ENCODER_INIT_STATUS_ENCODER_ERROR)
     self.delegate = delegate
@@ -106,6 +77,7 @@ public final class FlacEncoder {
       check(FLAC__stream_encoder_set_bits_per_sample(encoder, options.requiredOptions.bitsPerSample))
       check(FLAC__stream_encoder_set_sample_rate(encoder, options.requiredOptions.sampleRate))
       if output.isOgg {
+        checkOggFlacIsSupported()
         try check(FLAC__stream_encoder_set_ogg_serial_number(encoder, options.requiredOptions.serialNumber.unwrap("Ogg serial number must be set!")))
       }
       

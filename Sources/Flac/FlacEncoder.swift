@@ -23,7 +23,6 @@ public protocol FlacEncoderStreamDelegate {
 }
 
 fileprivate func writeCallback(encoder: UnsafePointer<FLAC__StreamEncoder>?, buffer: UnsafePointer<FLAC__byte>?, bytes: Int, samples: UInt32, currentFrame: UInt32, client: UnsafeMutableRawPointer?) -> FLAC__StreamEncoderWriteStatus {
-  FLAC__StreamEncoderMetadataCallback.self
   let swiftEncoder = unsafeBitCast(client.unsafelyUnwrapped, to: FlacEncoder.self)
   return swiftEncoder.output.withUnsafeMutableStreamDelegate { delegate in
     delegate.writeEncoded(buffer: buffer.unsafelyUnwrapped, bytes: bytes, samples: samples, currentFrame: currentFrame, encoder: swiftEncoder)

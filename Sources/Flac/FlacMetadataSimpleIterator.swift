@@ -43,8 +43,8 @@ public extension FlacMetadataSimpleIterator {
     }
   }
 
-  var currentBlockOffset: Int64 {
-    FLAC__metadata_simple_iterator_get_block_offset(iterator)
+  var currentBlockOffset: Int {
+    numericCast(FLAC__metadata_simple_iterator_get_block_offset(iterator))
   }
 
   var currentBlockType: FLAC__MetadataType {

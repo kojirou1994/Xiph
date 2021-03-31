@@ -1,5 +1,28 @@
 import Foundation
 
+extension FLAC__MetadataType: CustomStringConvertible {
+  public var description: String {
+    switch self {
+    case FLAC__METADATA_TYPE_VORBIS_COMMENT:
+      return "VORBIS_COMMENT"
+    case FLAC__METADATA_TYPE_PICTURE:
+      return "PICTURE"
+    case FLAC__METADATA_TYPE_STREAMINFO:
+      return "STREAMINFO"
+    case FLAC__METADATA_TYPE_PADDING:
+      return "PADDING"
+    case FLAC__METADATA_TYPE_APPLICATION:
+      return "APPLICATION"
+    case FLAC__METADATA_TYPE_SEEKTABLE:
+      return "SEEKTABLE"
+    case FLAC__METADATA_TYPE_CUESHEET:
+      return "CUESHEET"
+    default:
+      return "UNDEFINED(\(rawValue))"
+    }
+  }
+}
+
 public class FlacStreamMetadata {
 
   let ptr: UnsafeMutablePointer<FLAC__StreamMetadata>

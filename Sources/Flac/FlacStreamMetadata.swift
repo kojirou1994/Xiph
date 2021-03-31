@@ -25,6 +25,14 @@ public class FlacStreamMetadata {
       return FlacStreamMetadataPicture(ptr, owner: owner)
     case FLAC__METADATA_TYPE_STREAMINFO:
       return FlacStreamMetadataStreamInfo(ptr, owner: owner)
+    case FLAC__METADATA_TYPE_PADDING:
+      return FlacStreamMetadataPadding(ptr, owner: owner)
+    case FLAC__METADATA_TYPE_APPLICATION:
+      return FlacStreamMetadataApplication(ptr, owner: owner)
+    case FLAC__METADATA_TYPE_SEEKTABLE:
+      return FlacStreamMetadataSeektable(ptr, owner: owner)
+    case FLAC__METADATA_TYPE_CUESHEET:
+      return FlacStreamMetadataCuesheet(ptr, owner: owner)
     default:
       return FlacStreamMetadata(ptr, owner: owner)
     }
@@ -337,13 +345,94 @@ public extension FlacStreamMetadataPicture {
 
   func set<B: ContiguousBytes>(data: B, copy: Bool = true) throws {
     try data.withUnsafeBytes { buffer in
+      precondition(!buffer.isEmpty)
+      let binded = buffer.bindMemory(to: FLAC__byte.self)
       try preconditionOrThrow(
         FLAC__metadata_object_picture_set_data(
-          ptr, .init(mutating: buffer.bindMemory(to: FLAC__byte.self).baseAddress!), numericCast(buffer.count), .init(cBool: copy)
+          ptr, .init(mutating: binded.baseAddress!),
+          numericCast(binded.count), .init(cBool: copy)
         ).cBool
       )
     }
   }
+}
+
+// MARK: Padding
+public final class FlacStreamMetadataPadding: FlacStreamMetadata {
+
+  public convenience init() throws {
+    try self.init(type: FLAC__METADATA_TYPE_PADDING)
+  }
+
+}
+
+// MARK: Application
+public final class FlacStreamMetadataApplication: FlacStreamMetadata {
+
+  public convenience init() throws {
+    try self.init(type: FLAC__METADATA_TYPE_APPLICATION)
+  }
+
+}
+
+public extension FlacStreamMetadataApplication {
+
+  var id: String {
+    get {
+      withUnsafeBytes(of: ptr.pointee.data.application.id) { buffer in
+        String(decoding: buffer, as: UTF8.self)
+      }
+    }
+    set {
+      let utf8 = newValue.utf8
+      precondition(utf8.count == 4)
+      let bytes = Array(utf8)
+      ptr.pointee.data.application.id = (bytes[0], bytes[1], bytes[2], bytes[3])
+    }
+  }
+
+  var data: UnsafeBufferPointer<UInt8> {
+    .init(start: ptr.pointee.data.application.data, count: numericCast(length - 4))
+  }
+
+  func set<B: ContiguousBytes>(data: B, copy: Bool = true) throws {
+    try data.withUnsafeBytes { buffer in
+      precondition(!buffer.isEmpty)
+      let binded = buffer.bindMemory(to: FLAC__byte.self)
+      try preconditionOrThrow(
+        FLAC__metadata_object_application_set_data(
+          ptr, .init(mutating: binded.baseAddress!),
+          numericCast(binded.count), .init(cBool: copy)
+        ).cBool
+      )
+    }
+  }
+}
+
+// MARK: Seektable
+public final class FlacStreamMetadataSeektable: FlacStreamMetadata {
+
+  public convenience init() throws {
+    try self.init(type: FLAC__METADATA_TYPE_SEEKTABLE)
+  }
+
+}
+
+public extension FlacStreamMetadataSeektable {
+
+}
+
+// MARK: Cuesheet
+public final class FlacStreamMetadataCuesheet: FlacStreamMetadata {
+
+  public convenience init() throws {
+    try self.init(type: FLAC__METADATA_TYPE_CUESHEET)
+  }
+
+}
+
+public extension FlacStreamMetadataCuesheet {
+
 }
 
 extension FlacStreamMetadata: Equatable {

@@ -1,7 +1,6 @@
 import COpusfile
 import KwiftExtension
 import Foundation
-import CryptoKit
 
 // MARK: Opening and Closing
 public final class OpusFile {
@@ -141,37 +140,6 @@ extension OpusFile {
 
 // MARK: Functions for decoding audio data
 extension OpusFile {
-
-  @inlinable
-  @available(OSX 10.15, *)
-  public func decode() {
-    let output = URL(fileURLWithPath: "/Volumes/SAMSUNG_TF_64G/opus/mydecode.pcm")
-    precondition(FileManager.default.createFile(atPath: output.path, contents: nil, attributes: nil))
-    let handle = try! FileHandle(forWritingTo: output)
-    let bufferSize = 1024
-    let channelCount = self.channelCount(at: 0)
-    var buffer = [Int16](repeating: 0, count: bufferSize)
-    var md5 = Insecure.MD5()
-    buffer.withUnsafeMutableBufferPointer { bufferPointer in
-      var total: CInt = 0
-      while case let readSampleCount = try! read(to: bufferPointer).sampleCount, readSampleCount > 0 {
-        total += readSampleCount
-
-        //        bufferPointer.prefix(Int(readSampleCount * channelCount)).
-        UnsafeBufferPointer(start: bufferPointer.baseAddress!,
-                            count: Int(readSampleCount * channelCount))
-          .withMemoryRebound(to: UInt8.self) { writeBuffer in
-            md5.update(data: writeBuffer)
-            try! handle.kwiftWrite(contentsOf: writeBuffer)
-          }
-      }
-    }
-
-
-    //    print(total)
-    print(Array(md5.finalize()))
-    //    print(md5.finalize().hexString())
-  }
 
   public struct GainType: RawRepresentable {
     public let rawValue: Int32

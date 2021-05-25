@@ -1,31 +1,39 @@
 // swift-tools-version:5.3
 
 import PackageDescription
+import Foundation
 
-#if os(Linux) || SYSTEM_XIPH
-let libFLAC: Target = .systemLibrary(
-  name: "FLAC",
-  pkgConfig: "flac"
-)
-let libogg: Target = .systemLibrary(
-  name: "ogg",
-  pkgConfig: "ogg"
-)
-let libopus: Target = .systemLibrary(
-  name: "opus",
-  pkgConfig: "opus"
-)
-let libopusfile: Target = .systemLibrary(
-  name: "opusfile",
-  pkgConfig: "opusurl"
-)
+let useSystemXiph: Bool
+#if os(Linux)
+useSystemXiph = true
 #else
-let libFLAC: Target = .binaryTarget(name: "FLAC", path: "xcframework/FLAC_static.xcframework")
-let libogg: Target = .binaryTarget(name: "ogg", path: "xcframework/ogg_static.xcframework")
-let libopus: Target = .binaryTarget(name: "opus", path: "xcframework/opus_static.xcframework")
-let libopusfile: Target = .binaryTarget(name: "opusfile", path: "xcframework/opusfile_static.xcframework")
-let libopusurl: Target = .binaryTarget(name: "opusurl", path: "xcframework/opusurl_static.xcframework")
+useSystemXiph = ProcessInfo.processInfo.environment["SYSTEM_XIPH"] != nil
 #endif
+
+var libFLAC: Target = .binaryTarget(name: "FLAC", path: "xcframework/FLAC_static.xcframework")
+var libogg: Target = .binaryTarget(name: "ogg", path: "xcframework/ogg_static.xcframework")
+var libopus: Target = .binaryTarget(name: "opus", path: "xcframework/opus_static.xcframework")
+var libopusfile: Target = .binaryTarget(name: "opusfile", path: "xcframework/opusfile_static.xcframework")
+var libopusurl: Target = .binaryTarget(name: "opusurl", path: "xcframework/opusurl_static.xcframework")
+
+if useSystemXiph {
+  libFLAC = .systemLibrary(
+    name: libFLAC.name,
+    pkgConfig: "flac"
+  )
+  libogg = .systemLibrary(
+    name: libogg.name,
+    pkgConfig: "ogg"
+  )
+  libopus = .systemLibrary(
+    name: libopus.name,
+    pkgConfig: "opus"
+  )
+  libopusfile = .systemLibrary(
+    name: libopusfile.name,
+    pkgConfig: "opusurl"
+  )
+}
 
 let flac: Target = .target(
   name: "SwiftFlac",

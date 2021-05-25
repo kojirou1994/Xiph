@@ -1,76 +1,102 @@
-// swift-tools-version:5.0
+// swift-tools-version:5.3
 
 import PackageDescription
 
-let xiphTargets = ["Flac", "Opus"]
+#if os(Linux) || SYSTEM_XIPH
+let libFLAC: Target = .systemLibrary(
+  name: "FLAC",
+  pkgConfig: "flac"
+)
+let libogg: Target = .systemLibrary(
+  name: "ogg",
+  pkgConfig: "ogg"
+)
+let libopus: Target = .systemLibrary(
+  name: "opus",
+  pkgConfig: "opus"
+)
+let libopusfile: Target = .systemLibrary(
+  name: "opusfile",
+  pkgConfig: "opusurl"
+)
+#else
+let libFLAC: Target = .binaryTarget(name: "FLAC", path: "FLAC_static.xcframework")
+let libogg: Target = .binaryTarget(name: "ogg", path: "ogg_static.xcframework")
+let libopus: Target = .binaryTarget(name: "opus", path: "opus_static.xcframework")
+let libopusfile: Target = .binaryTarget(name: "opusfile", path: "opusfile_static.xcframework")
+let libopusurl: Target = .binaryTarget(name: "opusurl", path: "opusurl_static.xcframework")
+#endif
+
+let flac: Target = .target(
+  name: "SwiftFlac",
+  dependencies: [
+    .target(name: libFLAC.name),
+    .product(name: "KwiftC", package: "Kwift"),
+    .product(name: "Precondition", package: "Kwift"),
+  ]
+)
+
+let opus: Target = .target(
+  name: "SwiftOpus",
+  dependencies: [
+    .target(name: libopus.name),
+    .target(name: libopusfile.name),
+    .target(name: libopusurl.name),
+    .product(name: "KwiftC", package: "Kwift"),
+    .product(name: "Precondition", package: "Kwift"),
+  ]
+)
+
+//#if OGG_FLAC
+flac.dependencies.append(.target(name: libogg.name))
+//#endif
+opus.dependencies.append(.target(name: libogg.name))
 
 let package = Package(
   name: "Xiph",
+  platforms: [
+    .macOS(.v11),
+    .iOS(.v14),
+    .tvOS(.v14),
+    .watchOS(.v7),
+  ],
   products: [
-    .library(
-      name: "Xiph",
-      targets: xiphTargets),
-    .library(
-      name: "Flac",
-      targets: ["Flac"]),
-    .library(
-      name: "Opus",
-      targets: ["Opus"]),
-    .library(name: "CFlac", targets: ["CFlac"]),
-    .library(name: "COgg", targets: ["COgg"]),
-    .library(name: "COpus", targets: ["COpus"]),
-    .library(name: "COpusfile", targets: ["COpusfile"]),
+    .library(name: "Xiph", targets: [flac.name, opus.name]),
+    .library(name: flac.name, targets: [flac.name]),
+    .library(name: opus.name, targets: [opus.name]),
+    .library(name: libFLAC.name, targets: [libFLAC.name]),
+    .library(name: libogg.name, targets: [libogg.name]),
+    .library(name: libopus.name, targets: [libopus.name]),
+    .library(name: libopusfile.name, targets: [libopusfile.name]),
+    .library(name: libopusurl.name, targets: [libopusurl.name]),
   ],
   dependencies: [
     .package(url: "https://github.com/kojirou1994/Kwift.git", from: "0.8.1")
   ],
   targets: [
-    // FLAC
-    .systemLibrary(
-      name: "CFlac",
-      pkgConfig: "flac",
-      providers: [.brew(["flac"])]
-    ),
-    .target(
-      name: "Flac",
-      dependencies: [
-        "CFlac",
-        .product(name: "KwiftExtension", package: "Kwift")
-      ]
-    ),
+    // C libs
+    libFLAC,
+    libogg,
+    libopus,
+    libopusfile,
+    libopusurl,
 
-    // Ogg
-    .systemLibrary(
-      name: "COgg",
-      pkgConfig: "ogg"
-    ),
-
-    // Opus
-    .systemLibrary(
-      name: "COpus",
-      pkgConfig: "opus"
-    ),
-    .systemLibrary(
-      name: "COpusfile",
-      pkgConfig: "opusfile"
-    ),
-    .target(
-      name: "Opus",
-      dependencies: [
-        "COpus",
-        "COpusfile",
-        .product(name: "KwiftExtension", package: "Kwift")
-      ]
-    ),
+    // Swift
+    flac,
+    opus,
 
     // Tests
     .testTarget(
       name: "FlacTests",
-      dependencies: ["Flac"]
+      dependencies: [
+        .target(name: flac.name)
+      ]
     ),
     .testTarget(
       name: "OpusTests",
-      dependencies: ["Opus"]
+      dependencies: [
+        .target(name: opus.name)
+      ]
     ),
   ]
 )

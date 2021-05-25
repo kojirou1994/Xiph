@@ -1,4 +1,4 @@
-module COgg [system] {
+module ogg [system] {
   header "shim.h"
   link "ogg"
   export *

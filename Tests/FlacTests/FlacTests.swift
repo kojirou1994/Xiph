@@ -1,5 +1,5 @@
 import XCTest
-@testable import Flac
+@testable import SwiftFlac
 
 final class FlacTests: XCTestCase {
   func testRead() throws {
@@ -12,10 +12,12 @@ final class FlacTests: XCTestCase {
   }
 }
 
-import XCTest
-import Flac
-
 final class FlacStreamMetadataTests: XCTestCase {
+
+  func testDescription() {
+    print(FLAC__MAX_METADATA_TYPE)
+  }
+
   func testVorbis() throws {
     let meta = try FlacStreamMetadataVorbisComment()
     print(meta.vendorString)

@@ -1,4 +1,4 @@
-import COpusfile
+import opusfile
 
 @_transparent
 func throwOpusError(_ code: CInt) throws {

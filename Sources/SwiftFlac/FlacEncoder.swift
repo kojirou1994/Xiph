@@ -1,5 +1,5 @@
 import Foundation
-import CFlac
+import FLAC
 import Precondition
 
 extension FLAC__StreamEncoderInitStatus: Error {}
@@ -170,6 +170,7 @@ extension FlacEncoder {
 // MARK: Encoder Processing
 public extension FlacEncoder {
 
+  @discardableResult
   func finish() -> Bool {
     FLAC__stream_encoder_finish(encoder).cBool
   }

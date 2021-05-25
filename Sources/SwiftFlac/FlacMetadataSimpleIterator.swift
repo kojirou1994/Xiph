@@ -1,5 +1,5 @@
-@_exported import CFlac
-@_exported import KwiftExtension
+@_exported import FLAC
+import Precondition
 
 public final class FlacMetadataSimpleIterator {
 

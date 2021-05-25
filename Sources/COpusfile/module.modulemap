@@ -1,5 +1,0 @@
-module COpusfile [system] {
-  header "shim.h"
-  link "opusfile"
-  export *
-}

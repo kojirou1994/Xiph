@@ -1,4 +1,5 @@
-import CFlac
+import FLAC
+import Precondition
 
 public final class FlacMetadataIterator {
 

@@ -1,0 +1,9 @@
+#!/bin/bash
+
+build-cli build-all ogg --auto-pack-xc --enable-bitcode -l static -O3
+build-cli build-all flac --auto-pack-xc --enable-bitcode -l static -O3
+build-cli build-all opus --auto-pack-xc --enable-bitcode -l static -O3
+build-cli build-all opusfile --disable-http --auto-pack-xc --enable-bitcode -l static -O3
+
+# fix header
+sed -e 's/<opus_multistream.h>/<opus\/opus_multistream.h>/g' -i '' opusfile_static.xcframework/*/opusfile.framework/Headers/opusfile.h

@@ -1,5 +1,5 @@
 import Foundation
-import CFlac
+import FLAC
 import Precondition
 
 extension FLAC__StreamDecoderInitStatus: Error {}

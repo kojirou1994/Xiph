@@ -1,3 +1,5 @@
+import Precondition
+
 public enum FlacMetadataLevel0 {
 
   public static func getStreamInfo(filename: String) throws -> FlacStreamMetadata {

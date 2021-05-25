@@ -1,5 +1,6 @@
-import COpusfile
-import KwiftExtension
+import opusfile
+import Precondition
+import KwiftC
 import Foundation
 
 // MARK: Opening and Closing
@@ -17,15 +18,13 @@ public final class OpusFile {
   public init<D: ContiguousBytes>(data: D) throws {
     self.filePtr = try data.withUnsafeBytes { buffer in
       var error: CInt = 0
-      let ptr = op_open_memory(buffer.baseAddress?.assumingMemoryBound(to: UInt8.self), buffer.count, &error)
+      let binded = buffer.bindMemory(to: UInt8.self)
+      let ptr = op_open_memory(binded.baseAddress, binded.count, &error)
       return try ptr.unwrap(OpusError(error))
     }
   }
 
   deinit {
-    #if DEBUG
-    //    print("Closing file")
-    #endif
     op_free(filePtr)
   }
 }
@@ -65,7 +64,7 @@ extension OpusFile {
   /// - Parameter index: The index of the link whose ID header information should be retrieved. Use a negative number to get the ID header information of the current link. For an unseekable stream, _li is ignored, and the ID header information for the current link is always returned, if available.
   /// - Returns: The contents of the ID header for the given link.
   public func head(at index: Int32) -> OpusHead {
-    .init(head: op_head(filePtr, index))
+    .init(op_head(filePtr, index))
   }
 
   /// Get the comment header information for the given link in a (possibly chained) Ogg Opus stream. This function may be called on partially-opened streams, but it will always return the tags from the Opus stream in the first link.
@@ -73,7 +72,7 @@ extension OpusFile {
   /// - Throws: NilError if this is an unseekable stream that encountered an invalid link.
   /// - Returns: The contents of the comment header for the given link.
   public func tags(at index: Int32) throws -> OpusTags {
-    .init(tags: try op_tags(filePtr, index).unwrap("Unseekable stream").pointee)
+    .init(try op_tags(filePtr, index).unwrap("Unseekable stream").pointee)
   }
 
   /// Retrieve the index of the current link. This is the link that produced the data most recently read by op_read_float() or its associated functions, or, after a seek, the link that the seek target landed in. Reading more data may advance the link index (even on the first read after a seek).
@@ -148,12 +147,16 @@ extension OpusFile {
       self.rawValue = rawValue
     }
 
+    @_alwaysEmitIntoClient
     public static var header: Self { .init(rawValue: OP_HEADER_GAIN) }
 
+    @_alwaysEmitIntoClient
     public static var album: Self { .init(rawValue: OP_ALBUM_GAIN) }
 
+    @_alwaysEmitIntoClient
     public static var track: Self { .init(rawValue: OP_TRACK_GAIN) }
 
+    @_alwaysEmitIntoClient
     public static var absolute: Self { .init(rawValue: OP_ABSOLUTE_GAIN) }
   }
 

@@ -1,4 +1,4 @@
-module COpus [system] {
+module opus [system] {
   header "shim.h"
   link "opus"
   export *

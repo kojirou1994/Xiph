@@ -1,4 +1,5 @@
 import Foundation
+import Precondition
 
 extension FLAC__MetadataType: CustomStringConvertible {
   public var description: String {
@@ -122,45 +123,17 @@ public extension FLAC__StreamMetadata_VorbisComment_Entry {
 }
 
 // MARK: StreamInfo
+@dynamicMemberLookup
 public final class FlacStreamMetadataStreamInfo: FlacStreamMetadata {
 
   public convenience init() throws {
     try self.init(type: FLAC__METADATA_TYPE_STREAMINFO)
   }
 
-}
-
-public extension FlacStreamMetadataStreamInfo {
-  var sampleRate: UInt32 {
-    ptr.pointee.data.stream_info.sample_rate
-  }
-
-  var bitsPerSample: UInt32 {
-    ptr.pointee.data.stream_info.bits_per_sample
-  }
-
-  var minBlocksize: UInt32 {
-    ptr.pointee.data.stream_info.min_blocksize
-  }
-
-  var maxBlocksize: UInt32 {
-    ptr.pointee.data.stream_info.max_blocksize
-  }
-
-  var minFramesize: UInt32 {
-    ptr.pointee.data.stream_info.min_framesize
-  }
-
-  var maxFramesize: UInt32 {
-    ptr.pointee.data.stream_info.max_framesize
-  }
-
-  var channels: UInt32 {
-    ptr.pointee.data.stream_info.channels
-  }
-
-  var totalSamples: UInt64 {
-    ptr.pointee.data.stream_info.total_samples
+  public subscript<T>(dynamicMember member: WritableKeyPath<FLAC__StreamMetadata_StreamInfo, T>) -> T {
+    get {
+      ptr.pointee.data.stream_info[keyPath: member]
+    }
   }
 
 }

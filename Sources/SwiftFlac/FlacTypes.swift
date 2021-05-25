@@ -1,9 +1,10 @@
-import CFlac
+import FLAC
+import KwiftC
 
 extension Bool {
   @inlinable
   var flacBool: FLAC__bool {
-    self ? 1 : 0
+    .init(cBool: false)
   }
 }
 

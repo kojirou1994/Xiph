@@ -1,0 +1,15 @@
+framework module FLAC {
+//  header "export.h"
+//  header "stream_encoder.h"
+//  header "all.h"
+//  header "ordinals.h"
+//  header "metadata.h"
+//  header "format.h"
+//  header "stream_decoder.h"
+//  header "assert.h"
+//  header "callback.h"
+  umbrella header "FLAC_shim.h"
+  export *
+  module * { export * }
+  //requires objc
+}

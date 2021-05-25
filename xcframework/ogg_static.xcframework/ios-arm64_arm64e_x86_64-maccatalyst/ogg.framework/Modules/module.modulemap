@@ -1,0 +1,8 @@
+framework module ogg {
+//  header "ogg.h"
+//  header "os_types.h"
+  umbrella header "ogg_shim.h"
+  export *
+  module * { export * }
+  //requires objc
+}

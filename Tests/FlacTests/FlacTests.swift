@@ -1,5 +1,6 @@
 import XCTest
 @testable import SwiftFlac
+import Precondition
 
 final class FlacTests: XCTestCase {
   func testRead() throws {

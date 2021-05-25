@@ -20,11 +20,11 @@ let libopusfile: Target = .systemLibrary(
   pkgConfig: "opusurl"
 )
 #else
-let libFLAC: Target = .binaryTarget(name: "FLAC", path: "FLAC_static.xcframework")
-let libogg: Target = .binaryTarget(name: "ogg", path: "ogg_static.xcframework")
-let libopus: Target = .binaryTarget(name: "opus", path: "opus_static.xcframework")
-let libopusfile: Target = .binaryTarget(name: "opusfile", path: "opusfile_static.xcframework")
-let libopusurl: Target = .binaryTarget(name: "opusurl", path: "opusurl_static.xcframework")
+let libFLAC: Target = .binaryTarget(name: "FLAC", path: "xcframework/FLAC_static.xcframework")
+let libogg: Target = .binaryTarget(name: "ogg", path: "xcframework/ogg_static.xcframework")
+let libopus: Target = .binaryTarget(name: "opus", path: "xcframework/opus_static.xcframework")
+let libopusfile: Target = .binaryTarget(name: "opusfile", path: "xcframework/opusfile_static.xcframework")
+let libopusurl: Target = .binaryTarget(name: "opusurl", path: "xcframework/opusurl_static.xcframework")
 #endif
 
 let flac: Target = .target(

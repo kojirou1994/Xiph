@@ -1,15 +1,16 @@
 import XCTest
 import SwiftFlac
+import Precondition
 
 extension FileHandle {
   func write<T: UnsignedInteger & FixedWidthInteger>(_ number: T) throws {
     try withUnsafeBytes(of: number) { ptr in
-      try kwiftWrite(contentsOf: ptr)
+      try write(contentsOf: ptr)
     }
   }
 
   func write(_ string: String) throws {
-    try kwiftWrite(contentsOf: Array(string.utf8))
+    try write(contentsOf: Array(string.utf8))
   }
 }
 

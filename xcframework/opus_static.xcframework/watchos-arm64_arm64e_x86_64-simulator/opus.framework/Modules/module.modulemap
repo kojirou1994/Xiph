@@ -1,0 +1,12 @@
+framework module opus {
+//  header "opus.h"
+//  header "opus_multistream.h"
+//  header "opus_custom.h"
+//  header "opus_types.h"
+//  header "opus_defines.h"
+//  header "opus_projection.h"
+  umbrella header "opus_shim.h"
+  export *
+  module * { export * }
+  //requires objc
+}

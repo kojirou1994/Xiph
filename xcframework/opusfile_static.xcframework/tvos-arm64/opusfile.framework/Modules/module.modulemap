@@ -1,0 +1,7 @@
+framework module opusfile {
+//  header "opusfile.h"
+  umbrella header "opusfile_shim.h"
+  export *
+  module * { export * }
+  //requires objc
+}

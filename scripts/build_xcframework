@@ -1,5 +1,7 @@
 #!/bin/bash
 
+cd xcframework
+
 build-cli build-all ogg --auto-pack-xc --enable-bitcode -l static -O3
 build-cli build-all flac --auto-pack-xc --enable-bitcode -l static -O3
 build-cli build-all opus --auto-pack-xc --enable-bitcode -l static -O3

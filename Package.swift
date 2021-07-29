@@ -63,7 +63,7 @@ opus.dependencies.append(.target(name: libogg.name))
 let package = Package(
   name: "Xiph",
   platforms: [
-    .macOS(.v11),
+    .macOS(.v10_13),
     .iOS(.v14),
     .tvOS(.v14),
     .watchOS(.v7),

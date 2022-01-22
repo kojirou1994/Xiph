@@ -1,6 +1,6 @@
 import opusfile
 import Precondition
-import KwiftC
+import CUtility
 import Foundation
 
 // MARK: Opening and Closing

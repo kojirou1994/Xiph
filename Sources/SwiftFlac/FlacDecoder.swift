@@ -1,6 +1,7 @@
 import Foundation
 import FLAC
 import Precondition
+import CUtility
 
 extension FLAC__StreamDecoderInitStatus: Error {}
 extension FLAC__StreamDecoderState: Error {}
@@ -67,7 +68,7 @@ fileprivate func lengthCallback(decoder: UnsafePointer<FLAC__StreamDecoder>?, st
 fileprivate func eofCallback(decoder: UnsafePointer<FLAC__StreamDecoder>?, client: UnsafeMutableRawPointer?) -> FLAC__bool {
   let swiftDecoder = unsafeBitCast(client.unsafelyUnwrapped, to: FlacDecoder.self)
   return swiftDecoder.input.withUnsafeMutableStreamDelegate { provider in
-    provider.isEndOfFile(decoder: swiftDecoder).flacBool
+      .init(cBool: provider.isEndOfFile(decoder: swiftDecoder))
   }
 }
 
@@ -100,7 +101,7 @@ public final class FlacDecoder {
       case .oggSerialNumber(let number):
         result = FLAC__stream_decoder_set_ogg_serial_number(decoder, number)
       case .md5CheckingEnabled:
-        result = FLAC__stream_decoder_set_md5_checking(decoder, true.flacBool)
+        result = FLAC__stream_decoder_set_md5_checking(decoder, .init(cBool: true))
       case .metadataRespond(let type):
         result = FLAC__stream_decoder_set_metadata_respond(decoder, type)
       case .metadataRespondApplication(let str):

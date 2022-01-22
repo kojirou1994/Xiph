@@ -87,7 +87,7 @@ public final class FlacEncoder {
       options.optionalOptions.forEach { option in
         switch option {
         case .verifyEnabled:
-          check(FLAC__stream_encoder_set_verify(encoder, true.flacBool))
+          check(FLAC__stream_encoder_set_verify(encoder, .init(cBool: true)))
         case .compressionLevel(let value):
           check(FLAC__stream_encoder_set_compression_level(encoder, value))
         case .metadatas(let metadatas):

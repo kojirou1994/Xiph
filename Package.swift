@@ -39,8 +39,8 @@ let flac: Target = .target(
   name: "SwiftFlac",
   dependencies: [
     .target(name: libFLAC.name),
-    .product(name: "KwiftC", package: "Kwift"),
-    .product(name: "Precondition", package: "Kwift"),
+    .product(name: "CUtility", package: "CUtility"),
+    .product(name: "Precondition", package: "Precondition"),
   ]
 )
 
@@ -50,8 +50,8 @@ let opus: Target = .target(
     .target(name: libopus.name),
     .target(name: libopusfile.name),
     .target(name: libopusurl.name),
-    .product(name: "KwiftC", package: "Kwift"),
-    .product(name: "Precondition", package: "Kwift"),
+    .product(name: "CUtility", package: "CUtility"),
+    .product(name: "Precondition", package: "Precondition"),
   ]
 )
 
@@ -79,7 +79,8 @@ let package = Package(
     .library(name: libopusurl.name, targets: [libopusurl.name]),
   ],
   dependencies: [
-    .package(url: "https://github.com/kojirou1994/Kwift.git", from: "0.8.1")
+    .package(url: "https://github.com/kojirou1994/Precondition.git", from: "1.0.0"),
+    .package(url: "https://github.com/kojirou1994/CUtility.git", from: "0.1.0"),
   ],
   targets: [
     // C libs

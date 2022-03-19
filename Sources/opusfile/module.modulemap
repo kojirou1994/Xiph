@@ -1,5 +1,5 @@
 module opusfile [system] {
   header "shim.h"
-  link "opusurl"
+  link "opusfile"
   export *
 }

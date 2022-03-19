@@ -1,0 +1,4 @@
+module opusurl [system] {
+  link "opusurl"
+  export *
+}

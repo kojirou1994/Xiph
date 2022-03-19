@@ -31,6 +31,10 @@ if useSystemXiph {
   )
   libopusfile = .systemLibrary(
     name: libopusfile.name,
+    pkgConfig: "opusfile"
+  )
+  libopusurl = .systemLibrary(
+    name: libopusurl.name,
     pkgConfig: "opusurl"
   )
 }
@@ -49,7 +53,6 @@ let opus: Target = .target(
   dependencies: [
     .target(name: libopus.name),
     .target(name: libopusfile.name),
-    .target(name: libopusurl.name),
     .product(name: "CUtility", package: "CUtility"),
     .product(name: "Precondition", package: "Precondition"),
   ]
@@ -104,7 +107,8 @@ let package = Package(
     .testTarget(
       name: "OpusTests",
       dependencies: [
-        .target(name: opus.name)
+        .target(name: opus.name),
+        .target(name: libopusurl.name),
       ]
     ),
   ]

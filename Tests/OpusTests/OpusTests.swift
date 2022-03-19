@@ -1,5 +1,6 @@
 import XCTest
 @testable import SwiftOpus
+import opusfile
 
 final class OpusTests: XCTestCase {
   func testTags() throws {
@@ -12,5 +13,10 @@ final class OpusTests: XCTestCase {
 
   func testHead() {
 
+  }
+
+  func testOpusUrlLinking() {
+    var info = OpusServerInfo()
+    opus_server_info_init(&info)
   }
 }

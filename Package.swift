@@ -10,11 +10,11 @@ useSystemXiph = true
 useSystemXiph = ProcessInfo.processInfo.environment["SYSTEM_XIPH"] != nil
 #endif
 
-var libFLAC: Target = .binaryTarget(name: "FLAC", path: "xcframework/FLAC_static.xcframework")
-var libogg: Target = .binaryTarget(name: "ogg", path: "xcframework/ogg_static.xcframework")
-var libopus: Target = .binaryTarget(name: "opus", path: "xcframework/opus_static.xcframework")
-var libopusfile: Target = .binaryTarget(name: "opusfile", path: "xcframework/opusfile_static.xcframework")
-var libopusurl: Target = .binaryTarget(name: "opusurl", path: "xcframework/opusurl_static.xcframework")
+var libFLAC: Target = .binaryTarget(name: "FLAC", path: "xcframework/FLAC.xcframework")
+var libogg: Target = .binaryTarget(name: "ogg", path: "xcframework/ogg.xcframework")
+var libopus: Target = .binaryTarget(name: "opus", path: "xcframework/opus.xcframework")
+var libopusfile: Target = .binaryTarget(name: "opusfile", path: "xcframework/opusfile.xcframework")
+var libopusurl: Target = .binaryTarget(name: "opusurl", path: "xcframework/opusurl.xcframework")
 
 if useSystemXiph {
   libFLAC = .systemLibrary(

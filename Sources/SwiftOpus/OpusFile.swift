@@ -63,8 +63,8 @@ extension OpusFile {
   /// Get the ID header information for the given link in a (possibly chained) Ogg Opus stream. This function may be called on partially-opened streams, but it will always return the ID header information of the Opus stream in the first link.
   /// - Parameter index: The index of the link whose ID header information should be retrieved. Use a negative number to get the ID header information of the current link. For an unseekable stream, _li is ignored, and the ID header information for the current link is always returned, if available.
   /// - Returns: The contents of the ID header for the given link.
-  public func head(at index: Int32) -> OpusHead {
-    .init(op_head(filePtr, index))
+  public func withHead(at index: Int32, _ body: (UnsafePointer<OpusHead>) -> Void) {
+    body(.init(OpaquePointer(op_head(filePtr, index))))
   }
 
   /// Get the comment header information for the given link in a (possibly chained) Ogg Opus stream. This function may be called on partially-opened streams, but it will always return the tags from the Opus stream in the first link.

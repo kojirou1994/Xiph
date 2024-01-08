@@ -6,16 +6,67 @@ import CUtility
 extension FLAC__StreamDecoderInitStatus: Error {}
 extension FLAC__StreamDecoderState: Error {}
 
+public typealias FlacStreamDecoderErrorStatus = FLAC__StreamDecoderErrorStatus
+
+public extension FlacStreamDecoderErrorStatus {
+  /// An error in the stream caused the decoder to lose synchronization.
+  @_alwaysEmitIntoClient
+  static var lostSync: Self { FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC }
+  /// The decoder encountered a corrupted frame header.
+  @_alwaysEmitIntoClient
+  static var badHeader: Self { FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER }
+  /// The frame's data did not match the CRC in the footer.
+  @_alwaysEmitIntoClient
+  static var frameCrcMismatch: Self { FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH }
+  /// The decoder encountered reserved fields in use in the stream.
+  @_alwaysEmitIntoClient
+  static var unparseableStream: Self { FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM }
+}
+
+extension FlacDecoder {
+  public typealias WriteStatus = FLAC__StreamDecoderWriteStatus
+}
+
+public extension FlacDecoder.WriteStatus {
+  /// The write was OK and decoding can continue.
+  @_alwaysEmitIntoClient
+  static var `continue`: Self { FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE }
+  /// An unrecoverable error occurred.  The decoder will return from the process call.
+  @_alwaysEmitIntoClient
+  static var abort: Self { FLAC__STREAM_DECODER_WRITE_STATUS_ABORT }
+
+}
+/*
+ FLAC__FrameHeader header;
+ FLAC__Subframe subframes[FLAC__MAX_CHANNELS];
+ FLAC__FrameFooter footer;
+ */
+public struct FlacFrame {
+  let frame: UnsafePointer<FLAC__Frame>
+}
+
+public extension FlacFrame {
+  typealias Header = FLAC__FrameHeader
+  var header: Header {
+    frame.pointee.header
+  }
+
+  typealias Footer = FLAC__FrameFooter
+  var footer: Footer {
+    frame.pointee.footer
+  }
+}
+
 // MARK: Base Delegate
 public protocol FlacDecoderDelegate {
-  mutating func didDecodeFrame(_ frame: UnsafePointer<FLAC__Frame>, buffers: UnsafePointer<UnsafePointer<Int32>?>?, decoder: FlacDecoder) -> FLAC__StreamDecoderWriteStatus
+  mutating func didDecodeFrame(_ frame: FlacFrame, buffers: UnsafePointer<UnsafePointer<Int32>?>, decoder: FlacDecoder) -> FlacDecoder.WriteStatus
   mutating func didDecodeMetadata(_ metadata: FlacStreamMetadata, decoder: FlacDecoder)
-  mutating func didOccurError(status: FLAC__StreamDecoderErrorStatus, decoder: FlacDecoder)
+  mutating func didOccurError(status: FlacStreamDecoderErrorStatus, decoder: FlacDecoder)
 }
 
 fileprivate func writeCallback(decoder: UnsafePointer<FLAC__StreamDecoder>?, frame: UnsafePointer<FLAC__Frame>?, buffers: UnsafePointer<UnsafePointer<FLAC__int32>?>?, client: UnsafeMutableRawPointer?) -> FLAC__StreamDecoderWriteStatus {
   let swiftDecoder = unsafeBitCast(client.unsafelyUnwrapped, to: FlacDecoder.self)
-  return swiftDecoder.delegate?.didDecodeFrame(frame.unsafelyUnwrapped, buffers: buffers, decoder: swiftDecoder) ?? FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE
+  return swiftDecoder.delegate?.didDecodeFrame(.init(frame: frame.unsafelyUnwrapped), buffers: buffers.unsafelyUnwrapped, decoder: swiftDecoder) ?? .continue
 }
 
 fileprivate func metadataCallback(decoder: UnsafePointer<FLAC__StreamDecoder>?, metadata: UnsafePointer<FLAC__StreamMetadata>?, client: UnsafeMutableRawPointer?) {

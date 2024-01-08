@@ -175,7 +175,7 @@ public extension FlacEncoder {
     FLAC__stream_encoder_finish(encoder).cBool
   }
 
-  func process(buffer: UnsafePointer<UnsafePointer<FLAC__int32>?>, samples: UInt32) -> Bool {
+  func process(buffer: UnsafePointer<UnsafePointer<Int32>?>, samples: UInt32) -> Bool {
     FLAC__stream_encoder_process(encoder, buffer, samples).cBool
   }
 

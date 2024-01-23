@@ -80,6 +80,7 @@ let package = Package(
     .library(name: libopus.name, targets: [libopus.name]),
     .library(name: libopusfile.name, targets: [libopusfile.name]),
     .library(name: libopusurl.name, targets: [libopusurl.name]),
+    .library(name: "ReplayGainAnalysis", targets: ["ReplayGainAnalysis"]),
   ],
   dependencies: [
     .package(url: "https://github.com/kojirou1994/Precondition.git", from: "1.0.0"),
@@ -92,10 +93,12 @@ let package = Package(
     libopus,
     libopusfile,
     libopusurl,
+    .target(name: "CReplayGainAnalysis"),
 
     // Swift
     flac,
     opus,
+    .target(name: "ReplayGainAnalysis", dependencies: ["CReplayGainAnalysis"]),
 
     // Tests
     .testTarget(

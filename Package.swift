@@ -1,4 +1,4 @@
-// swift-tools-version:5.3
+// swift-tools-version: 5.8
 
 import PackageDescription
 import Foundation
@@ -66,7 +66,7 @@ opus.dependencies.append(.target(name: libogg.name))
 let package = Package(
   name: "Xiph",
   platforms: [
-    .macOS(.v10_13),
+    .macOS(.v10_15),
     .iOS(.v14),
     .tvOS(.v14),
     .watchOS(.v7),

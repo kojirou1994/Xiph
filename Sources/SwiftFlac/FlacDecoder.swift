@@ -1,14 +1,321 @@
-import Foundation
 import FLAC
 import Precondition
 import CUtility
 
-extension FLAC__StreamDecoderInitStatus: Error {}
-extension FLAC__StreamDecoderState: Error {}
+extension Flac {
+  public struct Decoder: ~Copyable {
+    @usableFromInline
+    internal let decoder: UnsafeMutablePointer<FLAC__StreamDecoder>
 
-public typealias FlacStreamDecoderErrorStatus = FLAC__StreamDecoderErrorStatus
+    @usableFromInline
+    internal var delegate: AnyObject?
 
-public extension FlacStreamDecoderErrorStatus {
+    public init() throws {
+      decoder = try FLAC__stream_decoder_new().unwrap()
+    }
+
+    deinit {
+      FLAC__stream_decoder_delete(decoder)
+    }
+  }
+
+}
+
+public extension Flac.Decoder {
+  mutating func open(path: UnsafePointer<CChar>?, isOgg: Bool, didDecodeFrame: @escaping WriteCallback, didDecodeMetadata: MetadataCallback?, didOccurError: @escaping ErrorCallback) -> OpenStatus {
+    assert(state == .uninitialized)
+    let callback = Callbacks(didDecodeFrame: didDecodeFrame, didDecodeMetadata: didDecodeMetadata, didOccurError: didOccurError)
+    let clientData = Unmanaged.passUnretained(callback).toOpaque()
+    let initStatus: OpenStatus
+    let metadataCB: FLAC__StreamDecoderMetadataCallback? = didDecodeMetadata == nil ? nil : metadataCallback
+    if isOgg {
+      initStatus = FLAC__stream_decoder_init_ogg_file(decoder, path, writeCallback, metadataCB, errorCallback, clientData)
+    } else {
+      initStatus = FLAC__stream_decoder_init_file(decoder, path, writeCallback, metadataCB, errorCallback, clientData)
+    }
+    if initStatus == .ok {
+      self.delegate = callback
+    }
+    return initStatus
+  }
+
+  mutating func open(file: consuming UnsafeMutablePointer<FILE>, isOgg: Bool, didDecodeFrame: @escaping WriteCallback, didDecodeMetadata: MetadataCallback?, didOccurError: @escaping ErrorCallback) -> OpenStatus {
+    assert(state == .uninitialized)
+    let callback = Callbacks(didDecodeFrame: didDecodeFrame, didDecodeMetadata: didDecodeMetadata, didOccurError: didOccurError)
+    let clientData = Unmanaged.passUnretained(callback).toOpaque()
+    let initStatus: OpenStatus
+    let metadataCB: FLAC__StreamDecoderMetadataCallback? = didDecodeMetadata == nil ? nil : metadataCallback
+    if isOgg {
+      initStatus = FLAC__stream_decoder_init_ogg_FILE(decoder, file, writeCallback, metadataCB, errorCallback, clientData)
+    } else {
+      initStatus = FLAC__stream_decoder_init_FILE(decoder, file, writeCallback, metadataCB, errorCallback, clientData)
+    }
+    if initStatus == .ok {
+      self.delegate = callback
+    }
+    return initStatus
+  }
+
+  mutating func open(stream: Callbacks, isOgg: Bool) -> OpenStatus {
+    assert(state == .uninitialized)
+    let clientData = Unmanaged.passUnretained(stream).toOpaque()
+    let initStatus: OpenStatus
+    let seekCB: FLAC__StreamDecoderSeekCallback? = stream.seek.map { _ in seekCallback }
+    let tellCB: FLAC__StreamDecoderTellCallback? = stream.tell.map { _ in tellCallback }
+    let lengthCB: FLAC__StreamDecoderLengthCallback? = stream.length.map { _ in lengthCallback }
+    let eofCB: FLAC__StreamDecoderEofCallback? = stream.eof.map { _ in eofCallback }
+    let metadataCB: FLAC__StreamDecoderMetadataCallback? = stream.didDecodeMetadata == nil ? nil : metadataCallback
+    if isOgg {
+      initStatus = FLAC__stream_decoder_init_ogg_stream(decoder, readCallback, seekCB, tellCB, lengthCB, eofCB, writeCallback, metadataCB, errorCallback, clientData)
+    } else {
+      initStatus = FLAC__stream_decoder_init_stream(decoder, readCallback, seekCB, tellCB, lengthCB, eofCB, writeCallback, metadataCB, errorCallback, clientData)
+    }
+    if initStatus == .ok {
+      self.delegate = stream
+    }
+    return initStatus
+  }
+
+  typealias OpenStatus = FLAC__StreamDecoderInitStatus
+  typealias ReadStatus = FLAC__StreamDecoderReadStatus
+  typealias SeekStatus = FLAC__StreamDecoderSeekStatus
+  typealias TellStatus = FLAC__StreamDecoderTellStatus
+  typealias LengthStatus = FLAC__StreamDecoderLengthStatus
+  typealias WriteStatus = FLAC__StreamDecoderWriteStatus
+  typealias ErrorStatus = FLAC__StreamDecoderErrorStatus
+
+  typealias WriteCallback = (_ frame: borrowing Flac.Frame, _ buffers: UnsafePointer<UnsafePointer<Int32>?>) -> WriteStatus
+  typealias MetadataCallback = (_ metadata: borrowing Flac.StreamMetadata) -> Void
+  typealias ErrorCallback = (_ status: FLAC__StreamDecoderErrorStatus) -> Void
+  typealias ReadCallback = (_ buffer: UnsafeMutablePointer<UInt8>?, _ bytes: UnsafeMutablePointer<Int>?) -> ReadStatus
+  typealias SeekCallback = (_ absoluteByteOffset: UInt64) -> SeekStatus
+  typealias TellCallback = (_ currentAbsoluteByteOffset: UnsafeMutablePointer<UInt64>) -> TellStatus
+  typealias LengthCallback = (_ streanLength: inout UInt64) -> LengthStatus
+  typealias EOFCallback = () -> Bool
+
+  final class Callbacks {
+    // for file input
+    init(didDecodeFrame: @escaping WriteCallback, didDecodeMetadata: MetadataCallback?, didOccurError: @escaping ErrorCallback) {
+      self.didDecodeFrame = didDecodeFrame
+      self.didDecodeMetadata = didDecodeMetadata
+      self.didOccurError = didOccurError
+      self.read = nil
+      self.seek = nil
+      self.tell = nil
+      self.length = nil
+      self.eof = nil
+    }
+
+    // for stream
+    public init(didDecodeFrame: @escaping WriteCallback, didDecodeMetadata: MetadataCallback?, didOccurError: @escaping ErrorCallback, read: @escaping ReadCallback, seek: SeekCallback?, tell: TellCallback?, length: LengthCallback?, eof: EOFCallback?) {
+      self.didDecodeFrame = didDecodeFrame
+      self.didDecodeMetadata = didDecodeMetadata
+      self.didOccurError = didOccurError
+      self.read = read
+      self.seek = seek
+      self.tell = tell
+      self.length = length
+      self.eof = eof
+    }
+
+    let didDecodeFrame: WriteCallback
+    let didDecodeMetadata: MetadataCallback?
+    let didOccurError: ErrorCallback
+
+    /// This pointer must not be NULL for stream INPUT
+    let read: ReadCallback?
+    let seek: SeekCallback?
+    let tell: TellCallback?
+    let length: LengthCallback?
+    let eof: EOFCallback?
+
+    deinit {
+      #if DEBUG
+      print(#function, "released")
+      #endif
+    }
+  }
+
+}
+
+// MARK: Callbacks
+fileprivate func writeCallback(decoder: UnsafePointer<FLAC__StreamDecoder>?, frame: UnsafePointer<FLAC__Frame>!, buffers: UnsafePointer<UnsafePointer<FLAC__int32>?>!, client: UnsafeMutableRawPointer!) -> FLAC__StreamDecoderWriteStatus {
+  let delegate = Unmanaged<Flac.Decoder.Callbacks>.fromOpaque(client).takeUnretainedValue()
+  return delegate.didDecodeFrame(.init(frame: frame), buffers)
+}
+
+fileprivate func metadataCallback(decoder: UnsafePointer<FLAC__StreamDecoder>?, metadata: UnsafePointer<FLAC__StreamMetadata>!, client: UnsafeMutableRawPointer!) {
+  let meta = Flac.StreamMetadata(.init(mutating: metadata))
+  let delegate = Unmanaged<Flac.Decoder.Callbacks>.fromOpaque(client).takeUnretainedValue()
+  delegate.didDecodeMetadata!(meta)
+  _ = meta.take()
+}
+
+fileprivate func errorCallback(decoder: UnsafePointer<FLAC__StreamDecoder>?, status: FLAC__StreamDecoderErrorStatus, client: UnsafeMutableRawPointer!)  {
+  let delegate = Unmanaged<Flac.Decoder.Callbacks>.fromOpaque(client).takeUnretainedValue()
+  delegate.didOccurError(status)
+}
+
+fileprivate func readCallback(decoder: UnsafePointer<FLAC__StreamDecoder>?, buffer: UnsafeMutablePointer<FLAC__byte>!, bytes: UnsafeMutablePointer<Int>!, client: UnsafeMutableRawPointer!) -> FLAC__StreamDecoderReadStatus {
+  let delegate = Unmanaged<Flac.Decoder.Callbacks>.fromOpaque(client).takeUnretainedValue()
+  return delegate.read!(buffer, bytes)
+}
+
+fileprivate func seekCallback(decoder: UnsafePointer<FLAC__StreamDecoder>?, absolute_byte_offset: UInt64, client: UnsafeMutableRawPointer!) -> FLAC__StreamDecoderSeekStatus {
+  let delegate = Unmanaged<Flac.Decoder.Callbacks>.fromOpaque(client).takeUnretainedValue()
+  return delegate.seek!(absolute_byte_offset)
+}
+
+fileprivate func tellCallback(decoder: UnsafePointer<FLAC__StreamDecoder>?, absolute_byte_offset: UnsafeMutablePointer<FLAC__uint64>!, client: UnsafeMutableRawPointer!) -> FLAC__StreamDecoderTellStatus {
+  let delegate = Unmanaged<Flac.Decoder.Callbacks>.fromOpaque(client).takeUnretainedValue()
+  return delegate.tell!(absolute_byte_offset)
+}
+
+fileprivate func lengthCallback(decoder: UnsafePointer<FLAC__StreamDecoder>?, streamLength: UnsafeMutablePointer<FLAC__uint64>!, client: UnsafeMutableRawPointer!) -> FLAC__StreamDecoderLengthStatus {
+  let delegate = Unmanaged<Flac.Decoder.Callbacks>.fromOpaque(client).takeUnretainedValue()
+  return delegate.length!(&streamLength.pointee)
+}
+
+fileprivate func eofCallback(decoder: UnsafePointer<FLAC__StreamDecoder>?, client: UnsafeMutableRawPointer!) -> FLAC__bool {
+  let delegate = Unmanaged<Flac.Decoder.Callbacks>.fromOpaque(client).takeUnretainedValue()
+  return .init(cBool: delegate.eof!())
+}
+
+// MARK: Decoder Processing
+public extension Flac.Decoder {
+
+  mutating func finish() -> Bool {
+    let v = FLAC__stream_decoder_finish(decoder).cBool
+    delegate = nil
+    return v
+  }
+
+  func flush() -> Bool {
+    FLAC__stream_decoder_flush(decoder).cBool
+  }
+
+  func reset() -> Bool {
+    FLAC__stream_decoder_reset(decoder).cBool
+  }
+
+  func processSingle() -> Bool {
+    FLAC__stream_decoder_process_single(decoder).cBool
+  }
+
+  func processUntilEndOfMetadata() -> Bool {
+    FLAC__stream_decoder_process_until_end_of_metadata(decoder).cBool
+  }
+
+  func processUntilEndOfStream() -> Bool {
+    FLAC__stream_decoder_process_until_end_of_stream(decoder).cBool
+  }
+
+  func skipSingleFrame() -> Bool {
+    FLAC__stream_decoder_skip_single_frame(decoder).cBool
+  }
+
+  func seek(toAbsoluteSample: UInt64) -> Bool {
+    FLAC__stream_decoder_seek_absolute(decoder, toAbsoluteSample).cBool
+  }
+}
+
+// MARK: Properties
+public extension Flac.Decoder {
+
+  typealias State = FLAC__StreamDecoderState
+
+  private func safeSet(_ body: @autoclosure () -> FLAC__bool) {
+    assert(state == .uninitialized, "the decoder is already initialized")
+    let success = body().cBool
+    assert(success)
+  }
+
+  var state: State {
+    FLAC__stream_decoder_get_state(decoder)
+  }
+
+  var stateString: StaticCString {
+    .init(cString: FLAC__stream_decoder_get_resolved_state_string(decoder))
+  }
+
+  var md5Checking: Bool {
+    get { FLAC__stream_decoder_get_md5_checking(decoder).cBool }
+    set { safeSet(FLAC__stream_decoder_set_md5_checking(decoder, .init(cBool: newValue))) }
+  }
+
+  var totalSamples: UInt64 {
+    FLAC__stream_decoder_get_total_samples(decoder)
+  }
+
+  var channels: UInt32 {
+    FLAC__stream_decoder_get_channels(decoder)
+  }
+
+  var channelAssignment: Flac.ChannelAssignment {
+    FLAC__stream_decoder_get_channel_assignment(decoder)
+  }
+
+  var bitsPerSample: UInt32 {
+    FLAC__stream_decoder_get_bits_per_sample(decoder)
+  }
+
+  var sampleRate: UInt32 {
+    FLAC__stream_decoder_get_sample_rate(decoder)
+  }
+
+  var blockSize: UInt32 {
+    FLAC__stream_decoder_get_blocksize(decoder)
+  }
+
+  func get(decodePosition: inout UInt64) -> Bool {
+    FLAC__stream_decoder_get_decode_position(decoder, &decodePosition).cBool
+  }
+
+  mutating func set(oggSerialNumber: Int) {
+    safeSet(FLAC__stream_decoder_set_ogg_serial_number(decoder, oggSerialNumber))
+  }
+
+  mutating func respond(type: FLAC__MetadataType) {
+    safeSet(FLAC__stream_decoder_set_metadata_respond(decoder, type))
+  }
+
+  mutating func respond(applicationID: [UInt8]) {
+    safeSet(FLAC__stream_decoder_set_metadata_respond_application(decoder, applicationID))
+  }
+
+  mutating func respondAll() {
+    safeSet(FLAC__stream_decoder_set_metadata_respond_all(decoder))
+  }
+
+  mutating func ignore(type: FLAC__MetadataType) {
+    safeSet(FLAC__stream_decoder_set_metadata_ignore(decoder, type))
+  }
+
+  mutating func ignore(applicationID: [UInt8]) {
+    safeSet(FLAC__stream_decoder_set_metadata_ignore_application(decoder, applicationID))
+  }
+
+  mutating func ignoreAll() {
+    safeSet(FLAC__stream_decoder_set_metadata_ignore_all(decoder))
+  }
+}
+
+// MARK: Enum Values
+public extension Flac.Decoder.State {
+  static var searchForMetadata: Self { FLAC__STREAM_DECODER_SEARCH_FOR_METADATA }
+  static var uninitialized: Self { FLAC__STREAM_DECODER_UNINITIALIZED }
+}
+
+public extension Flac.Decoder.WriteStatus {
+  /// The write was OK and decoding can continue.
+  @_alwaysEmitIntoClient
+  static var `continue`: Self { FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE }
+  /// An unrecoverable error occurred.  The decoder will return from the process call.
+  @_alwaysEmitIntoClient
+  static var abort: Self { FLAC__STREAM_DECODER_WRITE_STATUS_ABORT }
+}
+
+public extension Flac.Decoder.ErrorStatus {
   /// An error in the stream caused the decoder to lose synchronization.
   @_alwaysEmitIntoClient
   static var lostSync: Self { FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC }
@@ -23,291 +330,6 @@ public extension FlacStreamDecoderErrorStatus {
   static var unparseableStream: Self { FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM }
 }
 
-extension FlacDecoder {
-  public typealias WriteStatus = FLAC__StreamDecoderWriteStatus
-}
-
-public extension FlacDecoder.WriteStatus {
-  /// The write was OK and decoding can continue.
-  @_alwaysEmitIntoClient
-  static var `continue`: Self { FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE }
-  /// An unrecoverable error occurred.  The decoder will return from the process call.
-  @_alwaysEmitIntoClient
-  static var abort: Self { FLAC__STREAM_DECODER_WRITE_STATUS_ABORT }
-
-}
-/*
- FLAC__FrameHeader header;
- FLAC__Subframe subframes[FLAC__MAX_CHANNELS];
- FLAC__FrameFooter footer;
- */
-public struct FlacFrame {
-  let frame: UnsafePointer<FLAC__Frame>
-}
-
-public extension FlacFrame {
-  typealias Header = FLAC__FrameHeader
-  var header: Header {
-    frame.pointee.header
-  }
-
-  typealias Footer = FLAC__FrameFooter
-  var footer: Footer {
-    frame.pointee.footer
-  }
-}
-
-// MARK: Base Delegate
-public protocol FlacDecoderDelegate {
-  mutating func didDecodeFrame(_ frame: FlacFrame, buffers: UnsafePointer<UnsafePointer<Int32>?>, decoder: FlacDecoder) -> FlacDecoder.WriteStatus
-  mutating func didDecodeMetadata(_ metadata: FlacStreamMetadata, decoder: FlacDecoder)
-  mutating func didOccurError(status: FlacStreamDecoderErrorStatus, decoder: FlacDecoder)
-}
-
-fileprivate func writeCallback(decoder: UnsafePointer<FLAC__StreamDecoder>?, frame: UnsafePointer<FLAC__Frame>?, buffers: UnsafePointer<UnsafePointer<FLAC__int32>?>?, client: UnsafeMutableRawPointer?) -> FLAC__StreamDecoderWriteStatus {
-  let swiftDecoder = unsafeBitCast(client.unsafelyUnwrapped, to: FlacDecoder.self)
-  return swiftDecoder.delegate?.didDecodeFrame(.init(frame: frame.unsafelyUnwrapped), buffers: buffers.unsafelyUnwrapped, decoder: swiftDecoder) ?? .continue
-}
-
-fileprivate func metadataCallback(decoder: UnsafePointer<FLAC__StreamDecoder>?, metadata: UnsafePointer<FLAC__StreamMetadata>?, client: UnsafeMutableRawPointer?) {
-  let swiftDecoder = unsafeBitCast(client.unsafelyUnwrapped, to: FlacDecoder.self)
-  swiftDecoder.delegate?.didDecodeMetadata(.autoCast(.init(mutating: metadata.unsafelyUnwrapped), owner: swiftDecoder), decoder: swiftDecoder)
-}
-
-fileprivate func errorCallback(decoder: UnsafePointer<FLAC__StreamDecoder>?, status: FLAC__StreamDecoderErrorStatus, client: UnsafeMutableRawPointer?)  {
-  let swiftDecoder = unsafeBitCast(client.unsafelyUnwrapped, to: FlacDecoder.self)
-  swiftDecoder.delegate?.didOccurError(status: status, decoder: swiftDecoder)
-}
-
-// MARK: Stream Delegate
-public protocol FlacDecoderStreamDelegate {
-  mutating func readInto(buffer: UnsafeMutablePointer<FLAC__byte>, bytesCount: UnsafeMutablePointer<Int>, decoder: FlacDecoder) -> FLAC__StreamDecoderReadStatus
-  mutating func seekTo(absoluteByteOffset: UInt64, decoder: FlacDecoder) -> FLAC__StreamDecoderSeekStatus
-  mutating func get(currentAbsoluteByteOffset: UnsafeMutablePointer<UInt64>, decoder: FlacDecoder) -> FLAC__StreamDecoderTellStatus
-  mutating func get(totalStreamLength: UnsafeMutablePointer<UInt64>, decoder: FlacDecoder) -> FLAC__StreamDecoderLengthStatus
-  mutating func isEndOfFile(decoder: FlacDecoder) -> Bool
-}
-
-fileprivate func readCallback(decoder: UnsafePointer<FLAC__StreamDecoder>?, buffer: UnsafeMutablePointer<FLAC__byte>?, bytes: UnsafeMutablePointer<Int>?, client: UnsafeMutableRawPointer?) -> FLAC__StreamDecoderReadStatus {
-  let swiftDecoder = unsafeBitCast(client.unsafelyUnwrapped, to: FlacDecoder.self)
-  return swiftDecoder.input.withUnsafeMutableStreamDelegate { provider in
-    provider.readInto(buffer: buffer.unsafelyUnwrapped, bytesCount: bytes.unsafelyUnwrapped, decoder: swiftDecoder)
-  }
-}
-
-fileprivate func seekCallback(decoder: UnsafePointer<FLAC__StreamDecoder>?, absolute_byte_offset: UInt64, client: UnsafeMutableRawPointer?) -> FLAC__StreamDecoderSeekStatus {
-  let swiftDecoder = unsafeBitCast(client.unsafelyUnwrapped, to: FlacDecoder.self)
-  return swiftDecoder.input.withUnsafeMutableStreamDelegate { provider in
-    provider.seekTo(absoluteByteOffset: absolute_byte_offset, decoder: swiftDecoder)
-  }
-}
-
-fileprivate func tellCallback(decoder: UnsafePointer<FLAC__StreamDecoder>?, absolute_byte_offset: UnsafeMutablePointer<FLAC__uint64>?, client: UnsafeMutableRawPointer?) -> FLAC__StreamDecoderTellStatus {
-  let swiftDecoder = unsafeBitCast(client.unsafelyUnwrapped, to: FlacDecoder.self)
-  return swiftDecoder.input.withUnsafeMutableStreamDelegate { provider in
-    provider.get(currentAbsoluteByteOffset: absolute_byte_offset.unsafelyUnwrapped, decoder: swiftDecoder)
-  }
-}
-
-fileprivate func lengthCallback(decoder: UnsafePointer<FLAC__StreamDecoder>?, streamLength: UnsafeMutablePointer<FLAC__uint64>?, client: UnsafeMutableRawPointer?) -> FLAC__StreamDecoderLengthStatus {
-  let swiftDecoder = unsafeBitCast(client.unsafelyUnwrapped, to: FlacDecoder.self)
-  return swiftDecoder.input.withUnsafeMutableStreamDelegate { provider in
-    provider.get(totalStreamLength: streamLength.unsafelyUnwrapped, decoder: swiftDecoder)
-  }
-}
-
-fileprivate func eofCallback(decoder: UnsafePointer<FLAC__StreamDecoder>?, client: UnsafeMutableRawPointer?) -> FLAC__bool {
-  let swiftDecoder = unsafeBitCast(client.unsafelyUnwrapped, to: FlacDecoder.self)
-  return swiftDecoder.input.withUnsafeMutableStreamDelegate { provider in
-      .init(cBool: provider.isEndOfFile(decoder: swiftDecoder))
-  }
-}
-
-public final class FlacDecoder {
-
-  private let decoder: UnsafeMutablePointer<FLAC__StreamDecoder>
-
-  public fileprivate(set) var input: FlacInput
-
-  fileprivate var delegate: FlacDecoderDelegate?
-
-  ///
-  /// - Parameters:
-  ///   - input: input enum
-  ///   - delegate: callback delegate
-  /// - Throws: FLAC__StreamDecoderInitStatus
-  public init(input: FlacInput, delegate: FlacDecoderDelegate?, options: [DecoderOption]) throws {
-    decoder = try FLAC__stream_decoder_new()
-      .unwrap(FLAC__STREAM_DECODER_INIT_STATUS_MEMORY_ALLOCATION_ERROR)
-    self.delegate = delegate
-    self.input = input
-
-    if input.isOgg {
-      checkOggFlacIsSupported()
-    }
-
-    options.forEach { option in
-      let result: FLAC__bool
-      switch option {
-      case .oggSerialNumber(let number):
-        result = FLAC__stream_decoder_set_ogg_serial_number(decoder, number)
-      case .md5CheckingEnabled:
-        result = FLAC__stream_decoder_set_md5_checking(decoder, .init(cBool: true))
-      case .metadataRespond(let type):
-        result = FLAC__stream_decoder_set_metadata_respond(decoder, type)
-      case .metadataRespondApplication(let str):
-        precondition(str.utf8.count == 4)
-        result = FLAC__stream_decoder_set_metadata_respond_application(decoder, str)
-      case .metadataRespondAll:
-        result = FLAC__stream_decoder_set_metadata_respond_all(decoder)
-      case .metadataIgnore(let type):
-        result = FLAC__stream_decoder_set_metadata_ignore(decoder, type)
-      case .metadataIgnoreApplication(let str):
-        precondition(str.utf8.count == 4)
-        result = FLAC__stream_decoder_set_metadata_ignore_application(decoder, str)
-      case .metadataIgnoreAll:
-        result = FLAC__stream_decoder_set_metadata_ignore_all(decoder)
-      }
-
-      assert(result.cBool, "Only fail when the decoder is already initialized.")
-    }
-
-    let clientData = unsafeBitCast(self, to: UnsafeMutableRawPointer.self)
-    let initStatus: FLAC__StreamDecoderInitStatus
-
-    switch input {
-    case .file(let filename):
-      initStatus = FLAC__stream_decoder_init_file(decoder, filename, writeCallback, metadataCallback, errorCallback, clientData)
-    case .cfile(let file):
-      initStatus = FLAC__stream_decoder_init_FILE(decoder, file, writeCallback, metadataCallback, errorCallback, clientData)
-    case .oggFile(let filename):
-      checkOggFlacIsSupported()
-      initStatus = FLAC__stream_decoder_init_ogg_file(decoder, filename, writeCallback, metadataCallback, errorCallback, clientData)
-    case .oggCFile(let file):
-      checkOggFlacIsSupported()
-      initStatus = FLAC__stream_decoder_init_ogg_FILE(decoder, file, writeCallback, metadataCallback, errorCallback, clientData)
-    case .stream:
-      initStatus = FLAC__stream_decoder_init_stream(decoder, readCallback, seekCallback, tellCallback, lengthCallback, eofCallback, writeCallback, metadataCallback, errorCallback, clientData)
-    case .oggStream:
-      checkOggFlacIsSupported()
-      initStatus = FLAC__stream_decoder_init_ogg_stream(decoder, readCallback, seekCallback, tellCallback, lengthCallback, eofCallback, writeCallback, metadataCallback, errorCallback, clientData)
-    }
-
-    try preconditionOrThrow(initStatus == FLAC__STREAM_DECODER_INIT_STATUS_OK,
-                            initStatus)
-  }
-
-  deinit {
-    FLAC__stream_decoder_delete(decoder)
-  }
-}
-
-extension FlacDecoder {
-  public enum DecoderOption {
-    case oggSerialNumber(Int)
-    case md5CheckingEnabled
-    case metadataRespond(FLAC__MetadataType)
-    case metadataRespondApplication(String)
-    case metadataRespondAll
-    case metadataIgnore(FLAC__MetadataType)
-    case metadataIgnoreApplication(String)
-    case metadataIgnoreAll
-  }
-}
-
-public enum FlacDecoderProcessError: Error {
-  case md5Mismatch
-  case failedInState(FLAC__StreamDecoderState)
-  case seekFailed
-}
-
-// MARK: Decoder Processing
-public extension FlacDecoder {
-
-  func finish() throws {
-    let ok = FLAC__stream_decoder_finish(decoder).cBool
-    try preconditionOrThrow(ok, FlacDecoderProcessError.md5Mismatch)
-  }
-
-  func flush() throws {
-    let ok = FLAC__stream_decoder_flush(decoder).cBool
-    try preconditionOrThrow(ok, FlacDecoderProcessError.failedInState(state))
-  }
-
-  func reset() throws {
-    let ok = FLAC__stream_decoder_reset(decoder).cBool
-    try preconditionOrThrow(ok, FlacDecoderProcessError.failedInState(state))
-  }
-
-  func processSingle() throws {
-    let ok = FLAC__stream_decoder_process_single(decoder).cBool
-    try preconditionOrThrow(ok, FlacDecoderProcessError.failedInState(state))
-  }
-
-  func processUntilEndOfMetadata() throws {
-    let ok = FLAC__stream_decoder_process_until_end_of_metadata(decoder).cBool
-    try preconditionOrThrow(ok, FlacDecoderProcessError.failedInState(state))
-  }
-
-  func processUntilEndOfStream() throws {
-    let ok = FLAC__stream_decoder_process_until_end_of_stream(decoder).cBool
-    try preconditionOrThrow(ok, FlacDecoderProcessError.failedInState(state))
-  }
-
-  func skipSingleFrame() throws {
-    let ok = FLAC__stream_decoder_skip_single_frame(decoder).cBool
-    try preconditionOrThrow(ok, FlacDecoderProcessError.failedInState(state))
-  }
-
-  func seek(toAbsoluteSample: UInt64) -> Bool {
-    FLAC__stream_decoder_seek_absolute(decoder, toAbsoluteSample).cBool
-  }
-}
-
-// MARK: Decoder Properties
-public extension FlacDecoder {
-
-  var state: FLAC__StreamDecoderState {
-    FLAC__stream_decoder_get_state(decoder)
-  }
-
-  var stateString: String {
-    String(cString: FLAC__stream_decoder_get_resolved_state_string(decoder))
-  }
-
-  var md5Checking: Bool {
-    FLAC__stream_decoder_get_md5_checking(decoder).cBool
-  }
-
-  var totalSamples: UInt64 {
-    FLAC__stream_decoder_get_total_samples(decoder)
-  }
-
-  var channels: UInt32 {
-    FLAC__stream_decoder_get_channels(decoder)
-  }
-
-  var channelAssignment: FLAC__ChannelAssignment {
-    FLAC__stream_decoder_get_channel_assignment(decoder)
-  }
-
-  var bitsPerSample: UInt32 {
-    FLAC__stream_decoder_get_bits_per_sample(decoder)
-  }
-
-  var sampleRate: UInt32 {
-    FLAC__stream_decoder_get_sample_rate(decoder)
-  }
-
-  var blocksize: UInt32 {
-    FLAC__stream_decoder_get_blocksize(decoder)
-  }
-
-  var decodePosition: UInt64? {
-    var position = 0 as UInt64
-    if FLAC__stream_decoder_get_decode_position(decoder, &position).cBool {
-      return position
-    }
-    return nil
-  }
+public extension Flac.Decoder.OpenStatus {
+  static var ok: Self { FLAC__STREAM_DECODER_INIT_STATUS_OK }
 }
